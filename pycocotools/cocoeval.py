@@ -4,6 +4,8 @@ import numpy as np
 import datetime
 import time
 from collections import defaultdict
+
+from tqdm import tqdm
 from . import mask as maskUtils
 import copy
 
@@ -57,7 +59,7 @@ class COCOeval:
     # Data, paper, and tutorials available at:  http://mscoco.org/
     # Code written by Piotr Dollar and Tsung-Yi Lin, 2015.
     # Licensed under the Simplified BSD License [see coco/license.txt]
-    def __init__(self, cocoGt=None, cocoDt=None, iouType='segm'):
+    def __init__(self, cocoGt=None, cocoDt=None, iouType='segm', areaRng_subset=False):
         '''
         Initialize CocoEval using coco APIs for gt and dt
         :param cocoGt: coco object with ground truth annotations
@@ -72,7 +74,7 @@ class COCOeval:
         self.eval     = {}                  # accumulated evaluation results
         self._gts = defaultdict(list)       # gt for evaluation
         self._dts = defaultdict(list)       # dt for evaluation
-        self.params = Params(iouType=iouType) # parameters
+        self.params = Params(iouType=iouType,areaRng_subset=areaRng_subset) # parameters
         self._paramsEval = {}               # parameters for evaluation
         self.stats = []                     # result summarization
         self.ious = {}                      # ious between all gts and dts
@@ -151,11 +153,35 @@ class COCOeval:
 
         evaluateImg = self.evaluateImg
         maxDet = p.maxDets[-1]
-        self.evalImgs = [evaluateImg(imgId, catId, areaRng, maxDet)
-                 for catId in catIds
-                 for areaRng in p.areaRng
-                 for imgId in p.imgIds
-             ]
+
+        # self.evalImgs = [evaluateImg(imgId, catId, areaRng, maxDet)
+        #          for catId in catIds
+        #          for areaRng in p.areaRng
+        #          for imgId in p.imgIds
+        #      ]
+        
+        # ====================== 增加多进程支持 ==========
+        self.evalImgs = []
+        # 计算总的迭代次数
+        total_iterations = len(catIds) * len(p.areaRng) * len(p.imgIds)
+
+        # 创建一个进度条
+        # with tqdm(total=total_iterations, desc='Evaluating', unit='img') as pbar:
+        with tqdm(total=total_iterations) as pbar:
+            for catId in catIds:
+                for i,areaRng in enumerate(p.areaRng):
+                    for imgId in p.imgIds:
+                        pbar.set_description(f"Processing: Area type: {p.areaRngLbl[i]:>6s}, catId={catId}")
+                        # 进行评估
+                        self.evalImgs.append(evaluateImg(imgId, catId, areaRng, maxDet))
+
+                        # 更新进度条
+                        pbar.update(1)
+
+                    # 在外部打印信息
+                    # print(f'Current category: {catId}, Area range: {areaRng}')
+        # ====================== 增加多进程支持 ==========
+        
         self._paramsEval = copy.deepcopy(self.params)
         toc = time.time()
         print('DONE (t={:0.2f}s).'.format(toc-tic))
@@ -419,7 +445,7 @@ class COCOeval:
         toc = time.time()
         print('DONE (t={:0.2f}s).'.format( toc-tic))
 
-    def summarize(self):
+    def summarize(self,TOD=True):
         '''
         Compute and display summary metrics for evaluation results.
         Note this functin can *only* be applied on the default parameter setting
@@ -457,18 +483,40 @@ class COCOeval:
             return mean_s
         def _summarizeDets():
             stats = np.zeros((12,))
-            stats[0] = _summarize(1)
             stats[1] = _summarize(1, iouThr=.5, maxDets=self.params.maxDets[2])
             stats[2] = _summarize(1, iouThr=.75, maxDets=self.params.maxDets[2])
-            stats[3] = _summarize(1, areaRng='small', maxDets=self.params.maxDets[2])
-            stats[4] = _summarize(1, areaRng='medium', maxDets=self.params.maxDets[2])
-            stats[5] = _summarize(1, areaRng='large', maxDets=self.params.maxDets[2])
-            stats[6] = _summarize(0, maxDets=self.params.maxDets[0])
-            stats[7] = _summarize(0, maxDets=self.params.maxDets[1])
-            stats[8] = _summarize(0, maxDets=self.params.maxDets[2])
-            stats[9] = _summarize(0, areaRng='small', maxDets=self.params.maxDets[2])
-            stats[10] = _summarize(0, areaRng='medium', maxDets=self.params.maxDets[2])
-            stats[11] = _summarize(0, areaRng='large', maxDets=self.params.maxDets[2])
+            stats[3] = _summarize(1, iouThr=.5, areaRng='tiny', maxDets=self.params.maxDets[2])
+            stats[4] = _summarize(1, areaRng='small', maxDets=self.params.maxDets[2])
+            stats[5] = _summarize(1, areaRng='medium', maxDets=self.params.maxDets[2])
+            stats[6] = _summarize(1, areaRng='large', maxDets=self.params.maxDets[2])
+            stats[7] = _summarize(0, maxDets=self.params.maxDets[0])
+            stats[8] = _summarize(0, maxDets=self.params.maxDets[1])
+            stats[9] = _summarize(0, maxDets=self.params.maxDets[2])
+            stats[10] = _summarize(0, areaRng='small', maxDets=self.params.maxDets[2])
+            stats[11] = _summarize(0, areaRng='medium', maxDets=self.params.maxDets[2])
+            stats[12] = _summarize(0, areaRng='large', maxDets=self.params.maxDets[2])
+            return stats
+        def _summarizeDets_TOD():
+            stats = np.zeros((12,))
+            stats[0] = _summarize(1, iouThr=.5, maxDets=self.params.maxDets[2])
+            stats[1] = _summarize(1, iouThr=.75, maxDets=self.params.maxDets[2])
+            stats[2] = _summarize(1)
+            print('')
+            stats[3] = _summarize(1, iouThr=.5, areaRng='tiny_1', maxDets=self.params.maxDets[2])
+            stats[4] = _summarize(1, iouThr=.5, areaRng='tiny_2', maxDets=self.params.maxDets[2])
+            stats[5] = _summarize(1, iouThr=.5, areaRng='small_1', maxDets=self.params.maxDets[2])
+            stats[6] = _summarize(1, iouThr=.5, areaRng='small_2', maxDets=self.params.maxDets[2])
+            stats[7] = _summarize(1, iouThr=.5, areaRng='medium', maxDets=self.params.maxDets[2])
+            stats[8] = _summarize(1, iouThr=.5, areaRng='large', maxDets=self.params.maxDets[2])
+            print('')
+            stats[9] = _summarize(1, iouThr=.5, areaRng='tiny', maxDets=self.params.maxDets[2])
+            stats[10] = _summarize(1, iouThr=.5, areaRng='small', maxDets=self.params.maxDets[2])
+            # stats[6] = _summarize(0, maxDets=self.params.maxDets[0])
+            # stats[7] = _summarize(0, maxDets=self.params.maxDets[1])
+            # stats[8] = _summarize(0, maxDets=self.params.maxDets[2])
+            # stats[9] = _summarize(0, areaRng='small', maxDets=self.params.maxDets[2])
+            # stats[10] = _summarize(0, areaRng='medium', maxDets=self.params.maxDets[2])
+            # stats[11] = _summarize(0, areaRng='large', maxDets=self.params.maxDets[2])
             return stats
         def _summarizeKps():
             stats = np.zeros((10,))
@@ -487,7 +535,10 @@ class COCOeval:
             raise Exception('Please run accumulate() first')
         iouType = self.params.iouType
         if iouType == 'segm' or iouType == 'bbox':
-            summarize = _summarizeDets
+            if TOD:
+                summarize = _summarizeDets_TOD
+            else:
+                summarize = _summarizeDets
         elif iouType == 'keypoints':
             summarize = _summarizeKps
         self.stats = summarize()
@@ -505,9 +556,14 @@ class Params:
         # np.arange causes trouble.  the data point on arange is slightly larger than the true value
         self.iouThrs = np.linspace(.5, 0.95, int(np.round((0.95 - .5) / .05)) + 1, endpoint=True)
         self.recThrs = np.linspace(.0, 1.00, int(np.round((1.00 - .0) / .01)) + 1, endpoint=True)
-        self.maxDets = [1, 10, 100]
-        self.areaRng = [[0 ** 2, 1e5 ** 2], [0 ** 2, 32 ** 2], [32 ** 2, 96 ** 2], [96 ** 2, 1e5 ** 2]]
-        self.areaRngLbl = ['all', 'small', 'medium', 'large']
+        if self.areaRng_subset:
+            self.maxDets = [1, 10, 1000]
+            self.areaRng = [[0**2, 1e5**2], [0**2, 8**2], [8**2, 16**2], [16**2, 24**2], [24**2, 32**2], [32**2, 96**2], [96**2, 1e5**2],[0 ** 2, 16 ** 2], [16 ** 2, 32 ** 2]]
+            self.areaRngLbl = ['all', 'tiny1', 'tiny2', 'small1','small2','medium', 'large', 'tiny', 'small']
+        else:
+            self.maxDets = [1, 10, 100]
+            self.areaRng = [[0 ** 2, 1e5 ** 2], [0 ** 2, 16 ** 2], [16 ** 2, 32 ** 2], [32 ** 2, 96 ** 2], [96 ** 2, 1e5 ** 2]]
+            self.areaRngLbl = ['all', 'tiny', 'small', 'medium', 'large']
         self.useCats = 1
 
     def setKpParams(self):
@@ -522,7 +578,8 @@ class Params:
         self.useCats = 1
         self.kpt_oks_sigmas = np.array([.26, .25, .25, .35, .35, .79, .79, .72, .72, .62,.62, 1.07, 1.07, .87, .87, .89, .89])/10.0
 
-    def __init__(self, iouType='segm'):
+    def __init__(self, iouType='segm', areaRng_subset=False):
+        self.areaRng_subset = areaRng_subset
         if iouType == 'segm' or iouType == 'bbox':
             self.setDetParams()
         elif iouType == 'keypoints':
