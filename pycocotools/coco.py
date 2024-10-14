@@ -90,14 +90,18 @@ class COCO:
         print('creating index...')
         anns, cats, imgs = {}, {}, {}
         imgToAnns,catToImgs = defaultdict(list),defaultdict(list)
-        if 'annotations' in self.dataset:
-            for ann in self.dataset['annotations']:
-                imgToAnns[ann['image_id']].append(ann)
-                anns[ann['id']] = ann
 
         if 'images' in self.dataset:
             for img in self.dataset['images']:
                 imgs[img['id']] = img
+
+        if 'annotations' in self.dataset:
+            for ann in self.dataset['annotations']:
+                # 
+                ann['image_size'] = [imgs[ann['image_id']]['width'], imgs[ann['image_id']]['height']]
+                imgToAnns[ann['image_id']].append(ann)
+                anns[ann['id']] = ann
+
 
         if 'categories' in self.dataset:
             for cat in self.dataset['categories']:
@@ -145,7 +149,7 @@ class COCO:
             else:
                 anns = self.dataset['annotations']
             anns = anns if len(catIds)  == 0 else [ann for ann in anns if ann['category_id'] in catIds]
-            anns = anns if len(areaRng) == 0 else [ann for ann in anns if ann['area'] > areaRng[0] and ann['area'] < areaRng[1]]
+            anns = anns if len(areaRng) == 0 else [ann for ann in anns if ann['area'] > areaRng[0] and ann['area'] < areaRng[1]] # for areaRng filter
         if not iscrowd == None:
             ids = [ann['id'] for ann in anns if ann['iscrowd'] == iscrowd]
         else:

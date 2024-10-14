@@ -9,6 +9,31 @@ from tqdm import tqdm
 from . import mask as maskUtils
 import copy
 
+from typing import Union
+from.coco import COCO
+
+def print_log(s, content_color = 'green'):
+    '''
+    PrintColor = <black> <red> <green> <yellow> <blue> <amaranth>  <ultramarine> <white> \\
+    PrintStyle = <default> <highlight> <underline> <flicker> <inverse> <invisible>
+    '''
+    # 直接转成字符串  如果输入 颜色 配置选项不在选项中
+    if content_color not in ['black','red','green','yellow','blue','amaranth','ultramarine','white','']:
+        s = s + '\033[0;31m x_x \033[0m' +  str(content_color)
+        content_color = 'green'
+    PrintColor = {'black': 30,'red': 31,'green': 32,'yellow': 33,'blue': 34,'amaranth': 35,'ultramarine': 36,'white': 37}
+    PrintStyle = {'default': 0,'highlight': 1,'underline': 4,'flicker': 5,'inverse': 7,'invisible': 8}
+
+    time_style = PrintStyle['default']
+    content_style = PrintStyle['default']
+    time_color = PrintColor['blue']
+    content_color = PrintColor[content_color]
+
+    cur_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    log = '\033[{};{}m[{}]\033[0m \033[{};{}m{}\033[0m'.format \
+        (time_style, time_color, cur_time, content_style, content_color, s)
+    print (log)
+
 class COCOeval:
     # Interface for evaluating detection on the Microsoft COCO dataset.
     #
@@ -59,11 +84,13 @@ class COCOeval:
     # Data, paper, and tutorials available at:  http://mscoco.org/
     # Code written by Piotr Dollar and Tsung-Yi Lin, 2015.
     # Licensed under the Simplified BSD License [see coco/license.txt]
-    def __init__(self, cocoGt=None, cocoDt=None, iouType='segm', areaRng_subset=False):
+    def __init__(self, cocoGt:Union[COCO, None]=None, cocoDt:Union[COCO, None]=None, iouType='segm', areaRng_subset=False, infer_size:Union[list, None] = None):
         '''
         Initialize CocoEval using coco APIs for gt and dt
         :param cocoGt: coco object with ground truth annotations
         :param cocoDt: coco object with detection results
+        :areaRng_subset: 是否只计算指定区域的 AP
+        :train_size: 训练尺寸
         :return: None
         '''
         if not iouType:
@@ -78,10 +105,13 @@ class COCOeval:
         self._paramsEval = {}               # parameters for evaluation
         self.stats = []                     # result summarization
         self.ious = {}                      # ious between all gts and dts
+        self.num_max = 100                  # 指标最大值 100 表示 map 为百分制
+        self.infer_size = infer_size        # 训练尺寸
         if not cocoGt is None:
             self.params.imgIds = sorted(cocoGt.getImgIds())
             self.params.catIds = sorted(cocoGt.getCatIds())
-
+        if self.infer_size is not None:
+            print_log('==========>>> get train_size, will set scale_factor... ')
 
     def _prepare(self):
         '''
@@ -163,14 +193,16 @@ class COCOeval:
         # ====================== 增加多进程支持 ==========
         self.evalImgs = []
         # 计算总的迭代次数
-        total_iterations = len(catIds) * len(p.areaRng) * len(p.imgIds)
+        # p.imgIds = p.imgIds[:10]
+        imgIds_items = p.imgIds
+        total_iterations = len(catIds) * len(p.areaRng) * len(imgIds_items)
 
         # 创建一个进度条
         # with tqdm(total=total_iterations, desc='Evaluating', unit='img') as pbar:
         with tqdm(total=total_iterations) as pbar:
             for catId in catIds:
                 for i,areaRng in enumerate(p.areaRng):
-                    for imgId in p.imgIds:
+                    for imgId in imgIds_items:
                         pbar.set_description(f"Processing: Area type: {p.areaRngLbl[i]:>6s}, catId={catId}")
                         # 进行评估
                         self.evalImgs.append(evaluateImg(imgId, catId, areaRng, maxDet))
@@ -273,8 +305,19 @@ class COCOeval:
         if len(gt) == 0 and len(dt) ==0:
             return None
 
+        if self.infer_size is not None:
+            object_items = gt if len(gt) > len(dt) else dt
+            image_size_max = max(object_items[0]['image_size'])
+            infer_size_max = max(self.infer_size)
+            scale_factor = (infer_size_max / image_size_max)**2
         for g in gt:
-            if g['ignore'] or (g['area']<aRng[0] or g['area']>aRng[1]):
+            # g['area'] 需要 * 比例因子： scale_factor = infer_size_max / image_size_max
+            if self.infer_size is not None:
+                # g['area'] *= scale_factor
+                gt_aRng_check = (g['area']*scale_factor<aRng[0] or g['area']*scale_factor>aRng[1])
+            else:
+                gt_aRng_check = (g['area']<aRng[0] or g['area']>aRng[1])
+            if g['ignore'] or gt_aRng_check: #gt area group check g['area']
                 g['_ignore'] = 1
             else:
                 g['_ignore'] = 0
@@ -321,7 +364,10 @@ class COCOeval:
                     dtm[tind,dind]  = gt[m]['id']
                     gtm[tind,m]     = d['id']
         # set unmatched detections outside of area range to ignore
-        a = np.array([d['area']<aRng[0] or d['area']>aRng[1] for d in dt]).reshape((1, len(dt)))
+        if self.infer_size is not None:
+            a = np.array([d['area']*scale_factor<aRng[0] or d['area']*scale_factor>aRng[1] for d in dt]).reshape((1, len(dt))) 
+        else:
+            a = np.array([d['area']<aRng[0] or d['area']>aRng[1] for d in dt]).reshape((1, len(dt))) # dt area group check d['area']
         dtIg = np.logical_or(dtIg, np.logical_and(dtm==0, np.repeat(a,T,0)))
         # store results for given image and category
         return {
@@ -452,7 +498,7 @@ class COCOeval:
         '''
         def _summarize( ap=1, iouThr=None, areaRng='all', maxDets=self.params.maxDets[2] ):
             p = self.params
-            iStr = ' {:<18} {} @[ IoU={:<9} | area={:>6s} | maxDets={:>3d} ] = {:0.3f}'
+            iStr = ' {:<18} {} @[ IoU={:<9} | area={:>6s} | maxDets={:>3d} ] = {:0.2f}'
             titleStr = 'Average Precision' if ap == 1 else 'Average Recall'
             typeStr = '(AP)' if ap==1 else '(AR)'
             iouStr = '{:0.2f}:{:0.2f}'.format(p.iouThrs[0], p.iouThrs[-1]) \
@@ -478,7 +524,10 @@ class COCOeval:
             if len(s[s>-1])==0:
                 mean_s = -1
             else:
-                mean_s = np.mean(s[s>-1])
+                if self.num_max == 100:
+                    mean_s = round(np.mean(s[s>-1]) * 100, 2)
+                else:
+                    mean_s = np.mean(s[s>-1])
             print(iStr.format(titleStr, typeStr, iouStr, areaRng, maxDets, mean_s))
             return mean_s
         def _summarizeDets():
@@ -499,13 +548,13 @@ class COCOeval:
         def _summarizeDets_TOD():
             stats = np.zeros((12,))
             stats[0] = _summarize(1, iouThr=.5, maxDets=self.params.maxDets[2])
-            stats[1] = _summarize(1, iouThr=.75, maxDets=self.params.maxDets[2])
+            # stats[1] = _summarize(1, iouThr=.75, maxDets=self.params.maxDets[2])
             stats[2] = _summarize(1)
             print('')
-            stats[3] = _summarize(1, iouThr=.5, areaRng='tiny_1', maxDets=self.params.maxDets[2])
-            stats[4] = _summarize(1, iouThr=.5, areaRng='tiny_2', maxDets=self.params.maxDets[2])
-            stats[5] = _summarize(1, iouThr=.5, areaRng='small_1', maxDets=self.params.maxDets[2])
-            stats[6] = _summarize(1, iouThr=.5, areaRng='small_2', maxDets=self.params.maxDets[2])
+            stats[3] = _summarize(1, iouThr=.5, areaRng='tiny1', maxDets=self.params.maxDets[2])
+            stats[4] = _summarize(1, iouThr=.5, areaRng='tiny2', maxDets=self.params.maxDets[2])
+            stats[5] = _summarize(1, iouThr=.5, areaRng='small1', maxDets=self.params.maxDets[2])
+            stats[6] = _summarize(1, iouThr=.5, areaRng='small2', maxDets=self.params.maxDets[2])
             stats[7] = _summarize(1, iouThr=.5, areaRng='medium', maxDets=self.params.maxDets[2])
             stats[8] = _summarize(1, iouThr=.5, areaRng='large', maxDets=self.params.maxDets[2])
             print('')
@@ -557,13 +606,13 @@ class Params:
         self.iouThrs = np.linspace(.5, 0.95, int(np.round((0.95 - .5) / .05)) + 1, endpoint=True)
         self.recThrs = np.linspace(.0, 1.00, int(np.round((1.00 - .0) / .01)) + 1, endpoint=True)
         if self.areaRng_subset:
-            self.maxDets = [1, 10, 1000]
+            self.maxDets = [1, 10, 300]
             self.areaRng = [[0**2, 1e5**2], [0**2, 8**2], [8**2, 16**2], [16**2, 24**2], [24**2, 32**2], [32**2, 96**2], [96**2, 1e5**2],[0 ** 2, 16 ** 2], [16 ** 2, 32 ** 2]]
-            self.areaRngLbl = ['all', 'tiny1', 'tiny2', 'small1','small2','medium', 'large', 'tiny', 'small']
+            self.areaRngLbl = ['all',       'tiny1',      'tiny2',          'small1',       'small2',       'medium',       'large',        'tiny',              'small']
         else:
             self.maxDets = [1, 10, 100]
             self.areaRng = [[0 ** 2, 1e5 ** 2], [0 ** 2, 16 ** 2], [16 ** 2, 32 ** 2], [32 ** 2, 96 ** 2], [96 ** 2, 1e5 ** 2]]
-            self.areaRngLbl = ['all', 'tiny', 'small', 'medium', 'large']
+            self.areaRngLbl = ['all',               'tiny',             'small',             'medium',          'large']
         self.useCats = 1
 
     def setKpParams(self):
