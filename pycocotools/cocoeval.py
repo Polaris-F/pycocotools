@@ -107,6 +107,7 @@ class COCOeval:
         self.ious = {}                      # ious between all gts and dts
         self.num_max = 100                  # 指标最大值 100 表示 map 为百分制
         self.infer_size = infer_size        # 训练尺寸
+        self.mAP_type = 'COCO'              # 指标类型 COCO or YOLO
         if not cocoGt is None:
             self.params.imgIds = sorted(cocoGt.getImgIds())
             self.params.catIds = sorted(cocoGt.getCatIds())
@@ -457,7 +458,6 @@ class COCOeval:
                         pr = tp / (fp+tp+np.spacing(1))
                         q  = np.zeros((R,))
                         ss = np.zeros((R,))
-
                         if nd:
                             recall[t,k,a,m] = rc[-1]
                         else:
@@ -479,6 +479,19 @@ class COCOeval:
                         except:
                             pass
                         precision[t,:,k,a,m] = np.array(q)
+                        
+                        if self.mAP_type == 'YOLO':
+                            ## ==== AP calculation of YOLO type====
+                            # metrics of yolov5
+                            mrec = np.concatenate(([0.0], rc, [1.0]))
+                            mpre = np.concatenate(([1.0], pr, [0.0]))
+                            mpre = np.flip(np.maximum.accumulate(np.flip(mpre)))
+
+                            x = np.linspace(0, 1, 101)  # 101-point interp (COCO)
+                            ap = np.trapz(np.interp(x, mrec, mpre), x)  # integrate
+                            precision[t,:,k,a,m] = np.array(ap)
+                            ## ==== AP calculation of YOLO type====
+
                         scores[t,:,k,a,m] = np.array(ss)
         self.eval = {
             'params': p,
@@ -496,7 +509,7 @@ class COCOeval:
         Compute and display summary metrics for evaluation results.
         Note this functin can *only* be applied on the default parameter setting
         '''
-        def _summarize( ap=1, iouThr=None, areaRng='all', maxDets=self.params.maxDets[2] ):
+        def _summarize( ap=1, iouThr=None, areaRng='all', maxDets=self.params.maxDets[-1] ):
             p = self.params
             iStr = ' {:<18} {} @[ IoU={:<9} | area={:>6s} | maxDets={:>3d} ] = {:0.2f}'
             titleStr = 'Average Precision' if ap == 1 else 'Average Recall'
@@ -547,25 +560,20 @@ class COCOeval:
             return stats
         def _summarizeDets_TOD():
             stats = np.zeros((12,))
-            stats[0] = _summarize(1, iouThr=.5, maxDets=self.params.maxDets[2])
+            stats[0] = _summarize(1, iouThr=.5, maxDets=self.params.maxDets[-1])
             # stats[1] = _summarize(1, iouThr=.75, maxDets=self.params.maxDets[2])
             stats[2] = _summarize(1)
             print('')
-            stats[3] = _summarize(1, iouThr=.5, areaRng='tiny1', maxDets=self.params.maxDets[2])
-            stats[4] = _summarize(1, iouThr=.5, areaRng='tiny2', maxDets=self.params.maxDets[2])
-            stats[5] = _summarize(1, iouThr=.5, areaRng='small1', maxDets=self.params.maxDets[2])
-            stats[6] = _summarize(1, iouThr=.5, areaRng='small2', maxDets=self.params.maxDets[2])
-            stats[7] = _summarize(1, iouThr=.5, areaRng='medium', maxDets=self.params.maxDets[2])
-            stats[8] = _summarize(1, iouThr=.5, areaRng='large', maxDets=self.params.maxDets[2])
+            stats[3] = _summarize(1, iouThr=.5, areaRng='tiny1', maxDets=self.params.maxDets[-1])
+            stats[4] = _summarize(1, iouThr=.5, areaRng='tiny2', maxDets=self.params.maxDets[-1])
+            stats[5] = _summarize(1, iouThr=.5, areaRng='small1', maxDets=self.params.maxDets[-1])
+            stats[6] = _summarize(1, iouThr=.5, areaRng='small2', maxDets=self.params.maxDets[-1])
+            stats[7] = _summarize(1, iouThr=.5, areaRng='medium', maxDets=self.params.maxDets[-1])
+            stats[8] = _summarize(1, iouThr=.5, areaRng='large', maxDets=self.params.maxDets[-1])
             print('')
-            stats[9] = _summarize(1, iouThr=.5, areaRng='tiny', maxDets=self.params.maxDets[2])
-            stats[10] = _summarize(1, iouThr=.5, areaRng='small', maxDets=self.params.maxDets[2])
-            # stats[6] = _summarize(0, maxDets=self.params.maxDets[0])
-            # stats[7] = _summarize(0, maxDets=self.params.maxDets[1])
-            # stats[8] = _summarize(0, maxDets=self.params.maxDets[2])
-            # stats[9] = _summarize(0, areaRng='small', maxDets=self.params.maxDets[2])
-            # stats[10] = _summarize(0, areaRng='medium', maxDets=self.params.maxDets[2])
-            # stats[11] = _summarize(0, areaRng='large', maxDets=self.params.maxDets[2])
+            stats[9] = _summarize(1, iouThr=.5, areaRng='tiny', maxDets=self.params.maxDets[-1])
+            stats[10] = _summarize(1, iouThr=.5, areaRng='small', maxDets=self.params.maxDets[-1])
+
             return stats
         def _summarizeKps():
             stats = np.zeros((10,))
@@ -606,7 +614,7 @@ class Params:
         self.iouThrs = np.linspace(.5, 0.95, int(np.round((0.95 - .5) / .05)) + 1, endpoint=True)
         self.recThrs = np.linspace(.0, 1.00, int(np.round((1.00 - .0) / .01)) + 1, endpoint=True)
         if self.areaRng_subset:
-            self.maxDets = [1, 10, 300]
+            self.maxDets = [300]
             self.areaRng = [[0**2, 1e5**2], [0**2, 8**2], [8**2, 16**2], [16**2, 24**2], [24**2, 32**2], [32**2, 96**2], [96**2, 1e5**2],[0 ** 2, 16 ** 2], [16 ** 2, 32 ** 2]]
             self.areaRngLbl = ['all',       'tiny1',      'tiny2',          'small1',       'small2',       'medium',       'large',        'tiny',              'small']
         else:

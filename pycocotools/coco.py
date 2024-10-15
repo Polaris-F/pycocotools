@@ -319,7 +319,7 @@ class COCO:
 
         print('Loading and preparing results...')
         tic = time.time()
-        if type(resFile) == str or (PYTHON_VERSION == 2 and type(resFile) == unicode):
+        if type(resFile) == str:
             with open(resFile) as f:
                 anns = json.load(f)
         elif type(resFile) == np.ndarray:
