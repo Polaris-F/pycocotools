@@ -25,7 +25,7 @@ except FileNotFoundError:
 
 setup(
     name='pycocotools',
-    description='Official APIs for the MS-COCO dataset',
+    description='Official APIs for the MS-COCO dataset，modify by polaris of nwpu',
     long_description=readme,
     long_description_content_type="text/markdown",
     url="https://github.com/ppwwyyxx/cocoapi",
@@ -37,6 +37,6 @@ setup(
         'matplotlib>=2.1.0',
         'numpy',
     ],
-    version='2.0.7',
+    version='2.0.10',
     ext_modules=ext_modules
 )

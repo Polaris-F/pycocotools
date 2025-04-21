@@ -541,8 +541,46 @@ class COCOeval:
                     mean_s = round(np.mean(s[s>-1]) * 100, 2)
                 else:
                     mean_s = np.mean(s[s>-1])
+                
             print(iStr.format(titleStr, typeStr, iouStr, areaRng, maxDets, mean_s))
             return mean_s
+
+        def _summarize_TOD( ap=1, iouThr=None, areaRng='all', areaRng_pix='all', maxDets=self.params.maxDets[-1] ):
+            p = self.params
+            iStr = ' {:<18} {} @[ IoU={:<9} | area={:>6s} | pix={:>6s} | maxDets={:>3d} ] = {:0.2f}'
+            titleStr = 'Average Precision' if ap == 1 else 'Average Recall'
+            typeStr = '(AP)' if ap==1 else '(AR)'
+            iouStr = '{:0.2f}:{:0.2f}'.format(p.iouThrs[0], p.iouThrs[-1]) \
+                if iouThr is None else '{:0.2f}'.format(iouThr)
+
+            aind = [i for i, aRng in enumerate(p.areaRngLbl) if aRng == areaRng]
+            mind = [i for i, mDet in enumerate(p.maxDets) if mDet == maxDets]
+            if ap == 1:
+                # dimension of precision: [TxRxKxAxM]
+                s = self.eval['precision']
+                # IoU
+                if iouThr is not None:
+                    t = np.where(iouThr == p.iouThrs)[0]
+                    s = s[t]
+                s = s[:,:,:,aind,mind]
+            else:
+                # dimension of recall: [TxKxAxM]
+                s = self.eval['recall']
+                if iouThr is not None:
+                    t = np.where(iouThr == p.iouThrs)[0]
+                    s = s[t]
+                s = s[:,:,aind,mind]
+            if len(s[s>-1])==0:
+                mean_s = -1
+            else:
+                if self.num_max == 100:
+                    mean_s = round(np.mean(s[s>-1]) * 100, 2)
+                else:
+                    mean_s = np.mean(s[s>-1])
+                
+            print(iStr.format(titleStr, typeStr, iouStr, areaRng, areaRng_pix, maxDets, mean_s))
+            return mean_s
+
         def _summarizeDets():
             stats = np.zeros((12,))
             stats[1] = _summarize(1, iouThr=.5, maxDets=self.params.maxDets[2])
@@ -560,19 +598,20 @@ class COCOeval:
             return stats
         def _summarizeDets_TOD():
             stats = np.zeros((12,))
-            stats[0] = _summarize(1, iouThr=.5, maxDets=self.params.maxDets[-1])
+            stats[0] = _summarize_TOD(1, iouThr=.5, areaRng_pix=self.params.RngLblPix['all'], maxDets=self.params.maxDets[-1])
             # stats[1] = _summarize(1, iouThr=.75, maxDets=self.params.maxDets[2])
-            stats[2] = _summarize(1)
+            stats[2] = _summarize_TOD(1, areaRng_pix=self.params.RngLblPix['all'],)
             print('')
-            stats[3] = _summarize(1, iouThr=.5, areaRng='tiny1', maxDets=self.params.maxDets[-1])
-            stats[4] = _summarize(1, iouThr=.5, areaRng='tiny2', maxDets=self.params.maxDets[-1])
-            stats[5] = _summarize(1, iouThr=.5, areaRng='small1', maxDets=self.params.maxDets[-1])
-            stats[6] = _summarize(1, iouThr=.5, areaRng='small2', maxDets=self.params.maxDets[-1])
-            stats[7] = _summarize(1, iouThr=.5, areaRng='medium', maxDets=self.params.maxDets[-1])
-            stats[8] = _summarize(1, iouThr=.5, areaRng='large', maxDets=self.params.maxDets[-1])
+            
+            stats[3] = _summarize_TOD(1, iouThr=.5, areaRng='tiny1',  areaRng_pix=self.params.RngLblPix['tiny1'], maxDets=self.params.maxDets[-1])
+            stats[4] = _summarize_TOD(1, iouThr=.5, areaRng='tiny2',  areaRng_pix=self.params.RngLblPix['tiny2'], maxDets=self.params.maxDets[-1])
+            stats[5] = _summarize_TOD(1, iouThr=.5, areaRng='small1', areaRng_pix=self.params.RngLblPix['small1'], maxDets=self.params.maxDets[-1])
+            stats[6] = _summarize_TOD(1, iouThr=.5, areaRng='small2', areaRng_pix=self.params.RngLblPix['small2'], maxDets=self.params.maxDets[-1])
+            stats[7] = _summarize_TOD(1, iouThr=.5, areaRng='medium', areaRng_pix=self.params.RngLblPix['medium'], maxDets=self.params.maxDets[-1])
+            stats[8] = _summarize_TOD(1, iouThr=.5, areaRng='large',  areaRng_pix=self.params.RngLblPix['large'], maxDets=self.params.maxDets[-1])
             print('')
-            stats[9] = _summarize(1, iouThr=.5, areaRng='tiny', maxDets=self.params.maxDets[-1])
-            stats[10] = _summarize(1, iouThr=.5, areaRng='small', maxDets=self.params.maxDets[-1])
+            stats[9] = _summarize_TOD(1, iouThr=.5, areaRng='tiny',   areaRng_pix=self.params.RngLblPix['tiny'], maxDets=self.params.maxDets[-1])
+            stats[10] = _summarize_TOD(1, iouThr=.5, areaRng='small', areaRng_pix=self.params.RngLblPix['small'], maxDets=self.params.maxDets[-1])
 
             return stats
         def _summarizeKps():
@@ -617,6 +656,17 @@ class Params:
             self.maxDets = [300]
             self.areaRng = [[0**2, 1e5**2], [0**2, 8**2], [8**2, 16**2], [16**2, 24**2], [24**2, 32**2], [32**2, 96**2], [96**2, 1e5**2],[0 ** 2, 16 ** 2], [16 ** 2, 32 ** 2]]
             self.areaRngLbl = ['all',       'tiny1',      'tiny2',          'small1',       'small2',       'medium',       'large',        'tiny',              'small']
+            self.RngLblPix = {
+                'all':      '0 x 0, -----',
+                'tiny1':    '0 x 0, 8 x 8',
+                'tiny2':    '8 x 8, 16x16',
+               'small1':    '16x16, 24x24',
+               'small2':    '24x24, 32x32',
+               'medium':    '32x32, 96x96',
+                'large':    '96x96, -----',
+                'tiny':     '0 x 0, 16x16',
+               'small':     '16x16, 32x32'
+            }
         else:
             self.maxDets = [1, 10, 100]
             self.areaRng = [[0 ** 2, 1e5 ** 2], [0 ** 2, 16 ** 2], [16 ** 2, 32 ** 2], [32 ** 2, 96 ** 2], [96 ** 2, 1e5 ** 2]]

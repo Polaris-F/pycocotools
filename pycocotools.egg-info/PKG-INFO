@@ -1,7 +1,7 @@
 Metadata-Version: 2.1
 Name: pycocotools
-Version: 2.0.7
-Summary: Official APIs for the MS-COCO dataset
+Version: 2.0.10
+Summary: Official APIs for the MS-COCO dataset，modify by polaris of nwpu
 Home-page: https://github.com/ppwwyyxx/cocoapi
 License: FreeBSD
 Requires-Python: >=3.5
