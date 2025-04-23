@@ -13,3 +13,30 @@ __pycache__
 build/
 dist/
 *.egg-info/
+
+# python 包编译过程产生的中间文件与文件夹
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.dll
+*.exe
+*.out
+*.log
+*.bak
+*.swp
+*.class
+*.jar
+*.zip
+*.tar.gz
+*.db
+
+# 虚拟环境相关文件
+venv/
+.venv/
+env/
+.env/
+
+#  pip 包本地安装文件
+*.egg-info/
+*.dist-info/
