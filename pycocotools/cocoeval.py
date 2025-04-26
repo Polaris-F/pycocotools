@@ -112,7 +112,7 @@ class COCOeval:
             self.params.imgIds = sorted(cocoGt.getImgIds())
             self.params.catIds = sorted(cocoGt.getCatIds())
         if self.infer_size is not None:
-            print_log('==========>>> get train_size, will set scale_factor... ')
+            print_log(f'==========>>> 以获取图片推理尺寸{self.infer_size}，根据图片尺寸计算比例因子，用于计算gt的面积并分类大小目标... ')
 
     def _prepare(self):
         '''
