@@ -90,7 +90,7 @@ class COCOeval:
         :param cocoGt: coco object with ground truth annotations
         :param cocoDt: coco object with detection results
         :areaRng_subset: 是否只计算指定区域的 AP
-        :train_size: 训练尺寸
+        :infer_size: 推理尺寸 在推理尺寸下计算gt的面积并分类大小目标 更合理
         :return: None
         '''
         if not iouType:
@@ -558,7 +558,7 @@ class COCOeval:
             
             areaRng_pix=self.params.RngLblPix[areaRng]
 
-            iStr = ' {:<18} {} @[ IoU={:<9} | area={:>6s} | pix={:>6s} | maxDets={:>3d} ] = {:0.3f}'
+            iStr = ' {:<18} {} @[ IoU={:<9} | area={:>6s} | pix={:>6s} | maxDets={:>3d} ] = {:>6.3f}'
             titleStr = 'Average Precision' if ap == 1 else 'Average Recall'
             typeStr = '(AP)' if ap==1 else '(AR)'
             iouStr = '{:0.2f}:{:0.2f}'.format(p.iouThrs[0], p.iouThrs[-1]) \
