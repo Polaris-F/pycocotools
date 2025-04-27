@@ -105,7 +105,7 @@ class COCOeval:
         self._paramsEval = {}               # parameters for evaluation
         self.stats = []                     # result summarization
         self.ious = {}                      # ious between all gts and dts
-        self.num_max = 100                  # 指标最大值 100 表示 map 为百分制
+        self.num_max = 1                    # 指标最大值 1 表示 map 为百分制
         self.infer_size = infer_size        # 训练尺寸
         self.mAP_type = 'COCO'              # 指标类型 COCO or YOLO
         if not cocoGt is None:
@@ -206,7 +206,7 @@ class COCOeval:
             for catId in catIds:
                 for i,areaRng in enumerate(p.areaRng):
                     for imgId in imgIds_items:
-                        pbar.set_description(f"Processing: Area type: {p.areaRngLbl[i]:>6s}, catId={catId}")
+                        pbar.set_description(f"处理: catId={catId} 目标{p.areaRngLbl[i]:>6s}, ")
                         # 进行评估
                         self.evalImgs.append(evaluateImg(imgId, catId, areaRng, maxDet))
 
