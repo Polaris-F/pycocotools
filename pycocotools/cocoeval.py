@@ -614,7 +614,7 @@ class COCOeval:
             return stats
         def _summarizeDets_TOD():
             stats = np.zeros((24,))
-            print(' ' + '-' * 97)
+            print(' ' + '-' * 98)
             stats[0]  = _summarize_TOD(1,                                 maxDets=self.params.maxDets[-1])
             stats[1]  = _summarize_TOD(1, iouThr=.5,                      maxDets=self.params.maxDets[-1])
             stats[2]  = _summarize_TOD(1, iouThr=.75,                     maxDets=self.params.maxDets[-1])
@@ -622,13 +622,13 @@ class COCOeval:
             stats[4]  = _summarize_TOD(1,              areaRng='small',   maxDets=self.params.maxDets[-1])
             stats[5]  = _summarize_TOD(1,              areaRng='medium',  maxDets=self.params.maxDets[-1])
             stats[6]  = _summarize_TOD(1,              areaRng='large',   maxDets=self.params.maxDets[-1])
-            print(' ' + '-' * 97)
+            print(' ' + '-' * 98)
 
             stats[7]  = _summarize_TOD(1, iouThr=.5,   areaRng='tiny1',   maxDets=self.params.maxDets[-1])
             stats[8]  = _summarize_TOD(1, iouThr=.5,   areaRng='tiny2',   maxDets=self.params.maxDets[-1])
             stats[9]  = _summarize_TOD(1, iouThr=.5,   areaRng='small1',  maxDets=self.params.maxDets[-1])
             stats[10] = _summarize_TOD(1, iouThr=.5,   areaRng='small2',  maxDets=self.params.maxDets[-1])
-            print(' ' + '-' * 97)
+            print(' ' + '-' * 98)
 
             stats[11] = _summarize_TOD(0,                                 maxDets=self.params.maxDets[0])
             stats[12] = _summarize_TOD(0,                                 maxDets=self.params.maxDets[1])
@@ -639,13 +639,13 @@ class COCOeval:
             stats[17] = _summarize_TOD(0,                areaRng='large', maxDets=self.params.maxDets[3])
             stats[18] = _summarize_TOD(0, iouThr=.5,                      maxDets=self.params.maxDets[3])
             stats[19] = _summarize_TOD(0, iouThr=.75,                     maxDets=self.params.maxDets[3])
-            print(' ' + '-' * 97)
+            print(' ' + '-' * 98)
 
             stats[20] = _summarize_TOD(0, iouThr=.5,   areaRng='tiny1',   maxDets=self.params.maxDets[-1])
             stats[21] = _summarize_TOD(0, iouThr=.5,   areaRng='tiny2',   maxDets=self.params.maxDets[-1])
             stats[22] = _summarize_TOD(0, iouThr=.5,   areaRng='small1',  maxDets=self.params.maxDets[-1])
             stats[23] = _summarize_TOD(0, iouThr=.5,   areaRng='small2',  maxDets=self.params.maxDets[-1])
-            print(' ' + '-' * 97)
+            print(' ' + '-' * 98)
             return stats
         def _summarizeKps():
             stats = np.zeros((10,))
