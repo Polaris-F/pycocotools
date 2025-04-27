@@ -113,6 +113,11 @@ class COCOeval:
             self.params.catIds = sorted(cocoGt.getCatIds())
         if self.infer_size is not None:
             print_log(f'==========>>> 已获取图片推理尺寸{self.infer_size}，根据图片尺寸计算比例因子，用于计算gt的面积并分类大小目标... ')
+        if self.num_max == 100:
+            print_log(f'==========>>> 指标最大值{self.num_max}，使用百分制显示 AP... ')
+        # 增加 self.mAP_type == 'YOLO' log信息提示
+        if self.mAP_type == 'YOLO':
+            print_log(f'==========>>> mAP_type为YOLO，将使用YOLO的AP计算方式...')
 
     def _prepare(self):
         '''
@@ -509,12 +514,10 @@ class COCOeval:
         Compute and display summary metrics for evaluation results.
         Note this functin can *only* be applied on the default parameter setting
         '''
-        # 增加 self.mAP_type == 'YOLO' log信息提示
-        if self.mAP_type == 'YOLO':
-            print_log(f'==========>>> mAP_type为YOLO，将使用YOLO的AP计算方式...')
+
         def _summarize( ap=1, iouThr=None, areaRng='all', maxDets=self.params.maxDets[-1] ):
             p = self.params
-            iStr = ' {:<18} {} @[ IoU={:<9} | area={:>6s} | maxDets={:>3d} ] = {:0.2f}'
+            iStr = ' {:<18} {} @[ IoU={:<9} | area={:>6s} | maxDets={:>3d} ] = {:0.3f}'
             titleStr = 'Average Precision' if ap == 1 else 'Average Recall'
             typeStr = '(AP)' if ap==1 else '(AR)'
             iouStr = '{:0.2f}:{:0.2f}'.format(p.iouThrs[0], p.iouThrs[-1]) \
@@ -541,7 +544,7 @@ class COCOeval:
                 mean_s = -1
             else:
                 if self.num_max == 100:
-                    mean_s = round(np.mean(s[s>-1]) * 100, 2)
+                    mean_s = round(np.mean(s[s>-1]) * 100, 3)
                 else:
                     mean_s = np.mean(s[s>-1])
                 
@@ -550,7 +553,7 @@ class COCOeval:
 
         def _summarize_TOD( ap=1, iouThr=None, areaRng='all', areaRng_pix='all', maxDets=self.params.maxDets[-1] ):
             p = self.params
-            iStr = ' {:<18} {} @[ IoU={:<9} | area={:>6s} | pix={:>6s} | maxDets={:>3d} ] = {:0.2f}'
+            iStr = ' {:<18} {} @[ IoU={:<9} | area={:>6s} | pix={:>6s} | maxDets={:>3d} ] = {:0.3f}'
             titleStr = 'Average Precision' if ap == 1 else 'Average Recall'
             typeStr = '(AP)' if ap==1 else '(AR)'
             iouStr = '{:0.2f}:{:0.2f}'.format(p.iouThrs[0], p.iouThrs[-1]) \
@@ -577,7 +580,7 @@ class COCOeval:
                 mean_s = -1
             else:
                 if self.num_max == 100:
-                    mean_s = round(np.mean(s[s>-1]) * 100, 2)
+                    mean_s = round(np.mean(s[s>-1]) * 100, 3)
                 else:
                     mean_s = np.mean(s[s>-1])
                 
