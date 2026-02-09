@@ -37,6 +37,6 @@ setup(
         'matplotlib>=2.1.0',
         'numpy',
     ],
-    version='2.0.10',
+    version='2.0.11',
     ext_modules=ext_modules
 )

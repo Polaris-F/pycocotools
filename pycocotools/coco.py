@@ -367,6 +367,7 @@ class COCO:
         print('DONE (t={:0.2f}s)'.format(time.time()- tic))
 
         res.dataset['annotations'] = anns
+        res.dataset['info'] = copy.deepcopy(self.dataset.get('info', {}))
         res.createIndex()
         return res
 
